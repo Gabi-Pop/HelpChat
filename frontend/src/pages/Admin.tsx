@@ -14,6 +14,7 @@ export function AdminPage() {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [events, setEvents] = useState<IngestionEvent[]>([]);
   const [reindexing, setReindexing] = useState(false);
+  const [reindexingId, setReindexingId] = useState<number | null>(null);
 
   const refresh = useCallback(() => {
     api.getStatus().then(setStatus).catch(() => {});
@@ -32,6 +33,15 @@ export function AdminPage() {
     await api.reindex();
     setTimeout(() => {
       setReindexing(false);
+      refresh();
+    }, 1500);
+  }
+
+  async function reindexOne(id: number) {
+    setReindexingId(id);
+    await api.reindexOne(id);
+    setTimeout(() => {
+      setReindexingId(null);
       refresh();
     }, 1500);
   }
@@ -72,6 +82,7 @@ export function AdminPage() {
               <th>din care OCR</th>
               <th>Indexat la</th>
               <th>Eroare</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -86,11 +97,20 @@ export function AdminPage() {
                 <td>{d.ocrChunkCount > 0 ? d.ocrChunkCount : '–'}</td>
                 <td>{d.indexedAt ? new Date(d.indexedAt).toLocaleString('ro-RO') : '–'}</td>
                 <td className="error-cell">{d.error ?? ''}</td>
+                <td>
+                  <button
+                    className="btn small"
+                    onClick={() => reindexOne(d.id)}
+                    disabled={reindexingId === d.id || status?.running}
+                  >
+                    {reindexingId === d.id ? 'Pornit…' : 'Reindexează'}
+                  </button>
+                </td>
               </tr>
             ))}
             {documents.length === 0 && (
               <tr>
-                <td colSpan={7} className="muted">
+                <td colSpan={8} className="muted">
                   Niciun document indexat încă. Pune PDF-uri în folderul configurat (PDF_DIR).
                 </td>
               </tr>

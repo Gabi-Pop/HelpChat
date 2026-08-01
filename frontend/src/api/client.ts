@@ -21,6 +21,7 @@ export const api = {
   getStatus: () => getJson<IndexStatus>('/api/admin/status'),
   getEvents: (limit = 100) => getJson<IngestionEvent[]>(`/api/admin/events?limit=${limit}`),
   reindex: () => fetch('/api/admin/reindex', { method: 'POST' }),
+  reindexOne: (id: number) => fetch(`/api/admin/documents/${id}/reindex`, { method: 'POST' }),
   health: () => getJson<{ ok: boolean }>('/api/health'),
 };
 
