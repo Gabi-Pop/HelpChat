@@ -29,6 +29,8 @@ export interface Citation {
   source: ChunkSource;
   /** Capturi de ecran atașate fragmentului (URL-uri servite de backend) */
   media: Array<{ id: number; url: string }>;
+  /** Scorul de relevanță din căutarea hibridă (RRF) */
+  score: number;
 }
 
 export interface ChatMessage {

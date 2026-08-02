@@ -105,6 +105,13 @@ export function ChatPage() {
     refreshConversations();
   }
 
+  async function renameConversation(id: number, currentTitle: string) {
+    const title = window.prompt('Titlu nou:', currentTitle);
+    if (!title || !title.trim() || title.trim() === currentTitle) return;
+    await api.renameConversation(id, title.trim());
+    refreshConversations();
+}
+
   return (
     <div className="chat-layout">
       <aside className="sidebar">
@@ -116,6 +123,9 @@ export function ChatPage() {
             <li key={c.id} className={c.id === activeId ? 'active' : ''}>
               <button className="conversation-title" onClick={() => openConversation(c.id)} title={c.title}>
                 {c.title}
+              </button>
+              <button className="icon-btn" title="Redenumește" onClick={() => renameConversation(c.id, c.title)}>
+                ✎
               </button>
               <button className="icon-btn" title="Șterge conversația" onClick={() => removeConversation(c.id)}>
                 ✕
@@ -144,19 +154,28 @@ export function ChatPage() {
                     {m.streaming && <span className="cursor">▍</span>}
                     {m.citations.length > 0 && (
                       <div className="citations">
-                        {m.citations.map((c) => (
-                          <button
-                            key={c.label}
-                            className="citation-chip"
-                            onClick={() => setOpenCitation(openCitation?.chunkId === c.chunkId ? null : c)}
-                            title={formatRef(c)}
-                          >
-                            [{c.label}] {formatRef(c)}
-                            {c.source === 'ocr' && <span className="ocr-badge">OCR</span>}
-                            {c.source === 'video' && <span className="ocr-badge">VIDEO</span>}
-                            {c.media.length > 0 && <span className="ocr-badge media-badge">📷 {c.media.length}</span>}
-                          </button>
-                        ))}
+                        {m.citations.map((c) => {
+                          const maxScore = Math.max(...m.citations.map((x) => x.score));
+                          const relevance = maxScore > 0 ? Math.round((c.score / maxScore) * 100) : 0;
+                          return (
+                            <button
+                              key={c.label}
+                              className="citation-chip"
+                              onClick={() => setOpenCitation(openCitation?.chunkId === c.chunkId ? null : c)}
+                              title={`${formatRef(c)} · relevanță ${relevance}%`}
+                            >
+                              <span className="citation-chip-label">
+                                [{c.label}] {formatRef(c)}
+                                {c.source === 'ocr' && <span className="ocr-badge">OCR</span>}
+                                {c.source === 'video' && <span className="ocr-badge">VIDEO</span>}
+                                {c.media.length > 0 && <span className="ocr-badge media-badge">📷 {c.media.length}</span>}
+                              </span>
+                              <span className="relevance-track">
+                                <span className="relevance-fill" style={{ width: `${relevance}%` }} />
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                     {m.citations.some((c) => c.media.length > 0) && (

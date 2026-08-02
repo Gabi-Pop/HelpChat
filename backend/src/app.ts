@@ -152,6 +152,17 @@ export async function buildServer(): Promise<FastifyInstance> {
     }));
   });
 
+  app.patch<{ Params: { id: string }; Body: { title?: string } }>('/api/conversations/:id', async (req, reply) => {
+    const title = req.body?.title?.trim();
+    if (!title) return reply.code(400).send({ error: 'Lipsește titlul' });
+    const { rows } = await pool.query<{ id: number }>(
+      `UPDATE conversations SET title = $2, updated_at = now() WHERE id = $1 RETURNING id`,
+      [req.params.id, title]
+    );
+    if (!rows.length) return reply.code(404).send({ error: 'Conversația nu există' });
+    return { renamed: true, title };
+});
+
   app.delete<{ Params: { id: string } }>('/api/conversations/:id', async (req) => {
     await pool.query(`DELETE FROM conversations WHERE id = $1`, [req.params.id]);
     return { deleted: true };

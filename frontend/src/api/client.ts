@@ -17,6 +17,12 @@ export const api = {
   listConversations: () => getJson<Conversation[]>('/api/conversations'),
   getMessages: (id: number) => getJson<ChatMessage[]>(`/api/conversations/${id}/messages`),
   deleteConversation: (id: number) => fetch(`/api/conversations/${id}`, { method: 'DELETE' }),
+  renameConversation: (id: number, title: string) =>
+    fetch(`/api/conversations/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title }),
+  }),
   getDocuments: () => getJson<DocumentSummary[]>('/api/documents'),
   getStatus: () => getJson<IndexStatus>('/api/admin/status'),
   getEvents: (limit = 100) => getJson<IngestionEvent[]>(`/api/admin/events?limit=${limit}`),

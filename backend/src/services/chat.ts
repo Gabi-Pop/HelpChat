@@ -77,6 +77,7 @@ export function toCitations(chunks: RetrievedChunk[], usedLabels?: Set<number>):
       snippet: chunk.text.length > SNIPPET_MAX_CHARS ? `${chunk.text.slice(0, SNIPPET_MAX_CHARS)}…` : chunk.text,
       source: chunk.source,
       media: chunk.mediaIds.map((id) => ({ id, url: `/api/media/${id}` })),
+      score: chunk.score,
     }));
 }
 

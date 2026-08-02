@@ -15,6 +15,21 @@ export function AdminPage() {
   const [events, setEvents] = useState<IngestionEvent[]>([]);
   const [reindexing, setReindexing] = useState(false);
   const [reindexingId, setReindexingId] = useState<number | null>(null);
+  const [filter, setFilter] = useState('');
+
+  type SortKey = 'relPath' | 'status' | 'chunkCount' | 'indexedAt';
+
+  const [sortKey, setSortKey] = useState<SortKey>('relPath');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  }
 
   const refresh = useCallback(() => {
     api.getStatus().then(setStatus).catch(() => {});
@@ -46,6 +61,17 @@ export function AdminPage() {
     }, 1500);
   }
 
+  const filteredDocuments = documents
+    .filter((d) => d.relPath.toLowerCase().includes(filter.toLowerCase()))
+    .sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'relPath') cmp = a.relPath.localeCompare(b.relPath);
+      else if (sortKey === 'status') cmp = a.status.localeCompare(b.status);
+      else if (sortKey === 'chunkCount') cmp = a.chunkCount - b.chunkCount;
+      else if (sortKey === 'indexedAt') cmp = (a.indexedAt ?? '').localeCompare(b.indexedAt ?? '');
+      return sortDir === 'asc' ? cmp : -cmp;
+  });
+
   return (
     <div className="admin">
       <section className="cards">
@@ -72,21 +98,36 @@ export function AdminPage() {
 
       <section>
         <h2>Documente</h2>
+        <input
+          type="text"
+          className="search-input"
+          placeholder="Caută după numele fișierului..."
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
         <table className="table">
           <thead>
             <tr>
-              <th>Fișier</th>
-              <th>Status</th>
+              <th className="sortable" onClick={() => toggleSort('relPath')}>
+                Fișier{sortKey === 'relPath' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+              </th>
+              <th className="sortable" onClick={() => toggleSort('status')}>
+                Status{sortKey === 'status' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+              </th>
               <th>Pagini</th>
-              <th>Fragmente</th>
+              <th className="sortable" onClick={() => toggleSort('chunkCount')}>
+                Fragmente{sortKey === 'chunkCount' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+              </th>
               <th>din care OCR</th>
-              <th>Indexat la</th>
+              <th className="sortable" onClick={() => toggleSort('indexedAt')}>
+                Indexat la{sortKey === 'indexedAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+              </th>
               <th>Eroare</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {documents.map((d) => (
+            {filteredDocuments.map((d) => (
               <tr key={d.id} className={d.status === 'failed' ? 'row-failed' : ''}>
                 <td>{d.relPath}</td>
                 <td>
@@ -108,10 +149,10 @@ export function AdminPage() {
                 </td>
               </tr>
             ))}
-            {documents.length === 0 && (
+            {filteredDocuments.length === 0 && (
               <tr>
                 <td colSpan={8} className="muted">
-                  Niciun document indexat încă. Pune PDF-uri în folderul configurat (PDF_DIR).
+                  {filter ? 'Niciun document nu corespunde căutării.' : 'Niciun document indexat încă. Pune PDF-uri în folderul configurat (PDF_DIR).'}
                 </td>
               </tr>
             )}
