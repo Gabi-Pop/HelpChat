@@ -18,7 +18,6 @@ export function AdminPage() {
   const [filter, setFilter] = useState('');
 
   type SortKey = 'relPath' | 'status' | 'chunkCount' | 'indexedAt';
-
   const [sortKey, setSortKey] = useState<SortKey>('relPath');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
@@ -61,6 +60,16 @@ export function AdminPage() {
     }, 1500);
   }
 
+  async function deleteDocument(id: number, relPath: string) {
+    if (!window.confirm(`Scoți documentul din index?\n${relPath}\n\n(Rămâne pe disc și poate fi reindexat oricând.)`)) return;
+    setReindexingId(id);
+    await api.deleteDocument(id);
+    setTimeout(() => {
+      setReindexingId(null);
+      refresh();
+    }, 1000);
+  }
+
   const filteredDocuments = documents
     .filter((d) => d.relPath.toLowerCase().includes(filter.toLowerCase()))
     .sort((a, b) => {
@@ -70,7 +79,7 @@ export function AdminPage() {
       else if (sortKey === 'chunkCount') cmp = a.chunkCount - b.chunkCount;
       else if (sortKey === 'indexedAt') cmp = (a.indexedAt ?? '').localeCompare(b.indexedAt ?? '');
       return sortDir === 'asc' ? cmp : -cmp;
-  });
+    });
 
   return (
     <div className="admin">
@@ -105,59 +114,72 @@ export function AdminPage() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
-        <table className="table">
-          <thead>
-            <tr>
-              <th className="sortable" onClick={() => toggleSort('relPath')}>
-                Fișier{sortKey === 'relPath' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
-              </th>
-              <th className="sortable" onClick={() => toggleSort('status')}>
-                Status{sortKey === 'status' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
-              </th>
-              <th>Pagini</th>
-              <th className="sortable" onClick={() => toggleSort('chunkCount')}>
-                Fragmente{sortKey === 'chunkCount' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
-              </th>
-              <th>din care OCR</th>
-              <th className="sortable" onClick={() => toggleSort('indexedAt')}>
-                Indexat la{sortKey === 'indexedAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
-              </th>
-              <th>Eroare</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredDocuments.map((d) => (
-              <tr key={d.id} className={d.status === 'failed' ? 'row-failed' : ''}>
-                <td>{d.relPath}</td>
-                <td>
-                  <span className={`status status-${d.status}`}>{STATUS_LABELS[d.status] ?? d.status}</span>
-                </td>
-                <td>{d.pageCount ?? '–'}</td>
-                <td>{d.chunkCount}</td>
-                <td>{d.ocrChunkCount > 0 ? d.ocrChunkCount : '–'}</td>
-                <td>{d.indexedAt ? new Date(d.indexedAt).toLocaleString('ro-RO') : '–'}</td>
-                <td className="error-cell">{d.error ?? ''}</td>
-                <td>
-                  <button
-                    className="btn small"
-                    onClick={() => reindexOne(d.id)}
-                    disabled={reindexingId === d.id || status?.running}
-                  >
-                    {reindexingId === d.id ? 'Pornit…' : 'Reindexează'}
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {filteredDocuments.length === 0 && (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
               <tr>
-                <td colSpan={8} className="muted">
-                  {filter ? 'Niciun document nu corespunde căutării.' : 'Niciun document indexat încă. Pune PDF-uri în folderul configurat (PDF_DIR).'}
-                </td>
+                <th className="sortable" onClick={() => toggleSort('relPath')}>
+                  Fișier{sortKey === 'relPath' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th className="sortable" onClick={() => toggleSort('status')}>
+                  Status{sortKey === 'status' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th>Pagini</th>
+                <th className="sortable" onClick={() => toggleSort('chunkCount')}>
+                  Fragmente{sortKey === 'chunkCount' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th>din care OCR</th>
+                <th className="sortable" onClick={() => toggleSort('indexedAt')}>
+                  Indexat la{sortKey === 'indexedAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th>Eroare</th>
+                <th></th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredDocuments.map((d) => (
+                <tr key={d.id} className={d.status === 'failed' ? 'row-failed' : ''}>
+                  <td title={d.relPath}>{d.relPath}</td>
+                  <td>
+                    <span className={`status status-${d.status}`}>{STATUS_LABELS[d.status] ?? d.status}</span>
+                  </td>
+                  <td>{d.pageCount ?? '–'}</td>
+                  <td>{d.chunkCount}</td>
+                  <td>{d.ocrChunkCount > 0 ? d.ocrChunkCount : '–'}</td>
+                  <td>{d.indexedAt ? new Date(d.indexedAt).toLocaleString('ro-RO') : '–'}</td>
+                  <td className="error-cell" title={d.error ?? ''}>{d.error ?? ''}</td>
+                  <td>
+                    <button
+                      className="btn small"
+                      onClick={() => reindexOne(d.id)}
+                      disabled={reindexingId === d.id || status?.running}
+                    >
+                      {reindexingId === d.id ? 'Pornit…' : 'Reindexează'}
+                    </button>
+                    {d.status !== 'deleted' && (
+                      <button
+                        className="btn small danger"
+                        onClick={() => deleteDocument(d.id, d.relPath)}
+                        disabled={reindexingId === d.id || status?.running}
+                      >
+                        Scoate din index
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {filteredDocuments.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="muted">
+                    {filter
+                      ? 'Niciun document nu corespunde căutării.'
+                      : 'Niciun document indexat încă. Pune PDF-uri în folderul configurat (PDF_DIR).'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section>

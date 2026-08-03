@@ -9,7 +9,7 @@ import { config } from './config.js';
 import { pool } from './db/pool.js';
 import { healthCheck } from './services/health.js';
 import { answerQuestion } from './services/chat.js';
-import { indexerStatus, scanAll, indexFile } from './services/indexer.js';
+import { indexerStatus, scanAll, indexFile, markDeleted } from './services/indexer.js';
 
 export async function buildServer(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
@@ -97,18 +97,32 @@ export async function buildServer(): Promise<FastifyInstance> {
   });
 
   app.post<{ Params: { id: string } }>('/api/admin/documents/:id/reindex', async (req, reply) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id)) return reply.code(400).send({ error: 'Id invalid' });
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return reply.code(400).send({ error: 'Id invalid' });
 
-  const { rows } = await pool.query<{ rel_path: string }>(
-    `SELECT rel_path FROM documents WHERE id = $1`,
-    [id]
-  );
-  if (!rows.length) return reply.code(404).send({ error: 'Documentul nu există' });
+    const { rows } = await pool.query<{ rel_path: string }>(
+      `SELECT rel_path FROM documents WHERE id = $1`,
+      [id]
+    );
+    if (!rows.length) return reply.code(404).send({ error: 'Documentul nu există' });
 
-  void indexFile(rows[0].rel_path, true);
-  return { started: true, relPath: rows[0].rel_path };
-});
+    void indexFile(rows[0].rel_path, true);
+    return { started: true, relPath: rows[0].rel_path };
+  });
+
+  app.post<{ Params: { id: string } }>('/api/admin/documents/:id/delete', async (req, reply) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return reply.code(400).send({ error: 'Id invalid' });
+
+    const { rows } = await pool.query<{ rel_path: string }>(
+      `SELECT rel_path FROM documents WHERE id = $1`,
+      [id]
+    );
+    if (!rows.length) return reply.code(404).send({ error: 'Documentul nu există' });
+
+    await markDeleted(rows[0].rel_path);
+    return { deleted: true, relPath: rows[0].rel_path };
+  });
 
   // Servește imaginile extrase din documente (capturi de ecran, cadre video).
   app.get<{ Params: { id: string } }>('/api/media/:id', async (req, reply) => {
@@ -161,7 +175,7 @@ export async function buildServer(): Promise<FastifyInstance> {
     );
     if (!rows.length) return reply.code(404).send({ error: 'Conversația nu există' });
     return { renamed: true, title };
-});
+  });
 
   app.delete<{ Params: { id: string } }>('/api/conversations/:id', async (req) => {
     await pool.query(`DELETE FROM conversations WHERE id = $1`, [req.params.id]);
